@@ -34,7 +34,8 @@ import (
 
 // printShutdownStatus prints running services until shut down
 func (process *TeleportProcess) printShutdownStatus(ctx context.Context) {
-	t := time.NewTicker(5 * time.Second)
+	//t := time.NewTicker(5 * time.Second)
+	t := time.NewTicker(300 * time.Millisecond)
 	defer t.Stop()
 	for {
 		select {
