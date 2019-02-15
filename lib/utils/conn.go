@@ -18,6 +18,7 @@ package utils
 
 import (
 	"bufio"
+	//"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -95,6 +96,8 @@ func RoundtripWithConn(conn net.Conn) (string, error) {
 // petabytes can be kept track of for TX and RX before it rolls over.
 // See https://golang.org/ref/spec#Numeric_types for more details.
 type StatConn struct {
+	rxb  *SyncBuffer
+	txb  *SyncBuffer
 	conn net.Conn
 
 	txBytes uint64
@@ -103,6 +106,8 @@ type StatConn struct {
 
 func NewStatConn(conn net.Conn) *StatConn {
 	return &StatConn{
+		txb:  NewSyncBuffer(),
+		rxb:  NewSyncBuffer(),
 		conn: conn,
 	}
 }
@@ -114,15 +119,20 @@ func (s *StatConn) Stat() (uint64, uint64) {
 
 func (s *StatConn) Read(b []byte) (n int, err error) {
 	s.rxBytes = s.rxBytes + uint64(len(b))
-	return s.conn.Read(b)
+	n, err = s.conn.Read(b)
+	s.rxb.Write(b)
+	return n, err
 }
 
 func (s *StatConn) Write(b []byte) (n int, err error) {
+	s.txb.Write(b)
 	s.txBytes = s.txBytes + uint64(len(b))
 	return s.conn.Write(b)
 }
 
 func (s *StatConn) Close() error {
+	ioutil.WriteFile("/home/rjones/Development/go/src/github.com/gravitational/rusty/teleport/local/txb.dat", s.txb.Bytes(), 0777)
+	ioutil.WriteFile("/home/rjones/Development/go/src/github.com/gravitational/rusty/teleport/local/rxb.dat", s.rxb.Bytes(), 0777)
 	return s.conn.Close()
 }
 
