@@ -506,14 +506,16 @@ func (c *ServerContext) Close() error {
 
 		auditLog := c.GetServer().GetAuditLog()
 		if c.StatConn == nil {
-			fmt.Printf("--> IS NIL\n")
 			return
 		}
 		txBytes, rxBytes := c.StatConn.Stat()
 
 		eventFields := events.EventFields{
-			events.DataTransmitted: txBytes,
-			events.DataReceived:    rxBytes,
+			// Note that TX and RX are reversed here, that is because the connection
+			// is held from the perspective of the server no the client, but the logs
+			// are from the perspective of the client.
+			events.DataTransmitted: rxBytes,
+			events.DataReceived:    txBytes,
 			events.SessionServerID: c.GetServer().ID(),
 			events.EventLogin:      c.Identity.Login,
 			events.EventUser:       c.Identity.TeleportUser,

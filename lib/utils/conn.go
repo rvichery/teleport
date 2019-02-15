@@ -18,13 +18,12 @@ package utils
 
 import (
 	"bufio"
-	//"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"time"
+	"sync/atomic"
 
 	"github.com/gravitational/trace"
 )
@@ -96,62 +95,31 @@ func RoundtripWithConn(conn net.Conn) (string, error) {
 // petabytes can be kept track of for TX and RX before it rolls over.
 // See https://golang.org/ref/spec#Numeric_types for more details.
 type StatConn struct {
-	rxb  *SyncBuffer
-	txb  *SyncBuffer
-	conn net.Conn
+	net.Conn
 
 	txBytes uint64
 	rxBytes uint64
 }
 
+// NewStatConn returns a net.Conn that can keep track of how much data was
+// transmitted over it.
 func NewStatConn(conn net.Conn) *StatConn {
 	return &StatConn{
-		txb:  NewSyncBuffer(),
-		rxb:  NewSyncBuffer(),
-		conn: conn,
+		Conn: conn,
 	}
 }
 
 // Stat returns the transmitted (TX) and received (RX) bytes over the net.Conn.
 func (s *StatConn) Stat() (uint64, uint64) {
-	return s.txBytes, s.rxBytes
+	return atomic.LoadUint64(&s.txBytes), atomic.LoadUint64(&s.rxBytes)
 }
 
 func (s *StatConn) Read(b []byte) (n int, err error) {
-	s.rxBytes = s.rxBytes + uint64(len(b))
-	n, err = s.conn.Read(b)
-	s.rxb.Write(b)
-	return n, err
+	defer atomic.AddUint64(&s.rxBytes, uint64(n))
+	return s.Conn.Read(b)
 }
 
 func (s *StatConn) Write(b []byte) (n int, err error) {
-	s.txb.Write(b)
-	s.txBytes = s.txBytes + uint64(len(b))
-	return s.conn.Write(b)
-}
-
-func (s *StatConn) Close() error {
-	ioutil.WriteFile("/home/rjones/Development/go/src/github.com/gravitational/rusty/teleport/local/txb.dat", s.txb.Bytes(), 0777)
-	ioutil.WriteFile("/home/rjones/Development/go/src/github.com/gravitational/rusty/teleport/local/rxb.dat", s.rxb.Bytes(), 0777)
-	return s.conn.Close()
-}
-
-func (s *StatConn) LocalAddr() net.Addr {
-	return s.conn.LocalAddr()
-}
-
-func (s *StatConn) RemoteAddr() net.Addr {
-	return s.conn.RemoteAddr()
-}
-
-func (s *StatConn) SetDeadline(t time.Time) error {
-	return s.conn.SetDeadline(t)
-}
-
-func (s *StatConn) SetReadDeadline(t time.Time) error {
-	return s.conn.SetReadDeadline(t)
-}
-
-func (s *StatConn) SetWriteDeadline(t time.Time) error {
-	return s.conn.SetWriteDeadline(t)
+	defer atomic.AddUint64(&s.txBytes, uint64(n))
+	return s.Conn.Write(b)
 }
