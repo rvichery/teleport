@@ -3157,14 +3157,33 @@ func (s *IntSuite) TestDataTransfer(c *check.C) {
 	defer t.Stop(true)
 
 	// Create a client to the above Teleport cluster.
-	client, err := t.NewClient(ClientConfig{Login: s.me.Username, Cluster: Site, Host: Host, Port: t.GetPortSSHInt()})
-	c.Assert(err, check.IsNil)
+	clientConfig := ClientConfig{
+		Login:   s.me.Username,
+		Cluster: Site,
+		Host:    Host,
+		Port:    t.GetPortSSHInt(),
+	}
 
-	client.SCP(
+	_, err := runCommand(t, []string{"dd", "if=/dev/zero", "bs=1024", "count=1024"}, clientConfig, 1)
+	fmt.Printf("--> err: %v.\n", err)
 
-cf.CopySpec=[n:/tmp/10 my_10mb_file], cf.NodePort: 0, cf.RecursiveCopy: false, cf.Quiet: false.
+	// get access to a authClient for the cluster
+	site := t.GetSiteAPI(Site)
+	c.Assert(site, check.NotNil)
+	// Get all session events from the backend.
+	sessionEvents, err := site.GetSessionEvents(defaults.Namespace, session.ID, 0, false)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
+	//nodes, err := client.ListNodes(context.Background())
+	//c.Assert(err, check.IsNil)
 
+	//for _, n := range nodes {
+	//	fmt.Printf("--> n: GetHostname: %v, GetName: %v.\n", n.GetHostname(), n.GetName())
+	//}
+	//client.SCP(
+	//cf.CopySpec=[n:/tmp/10 my_10mb_file], cf.NodePort: 0, cf.RecursiveCopy: false, cf.Quiet: false.
 }
 
 // runCommand is a shortcut for running SSH command, it creates a client
