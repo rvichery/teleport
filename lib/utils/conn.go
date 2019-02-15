@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/gravitational/trace"
 )
@@ -87,4 +88,60 @@ func RoundtripWithConn(conn net.Conn) (string, error) {
 		return "", err
 	}
 	return string(out), nil
+}
+
+// StatConn is a net.Conn that keeps track of how much data was transmitted
+// (TX) and received (RX) over the net.Conn. A maximum of about 18446
+// petabytes can be kept track of for TX and RX before it rolls over.
+// See https://golang.org/ref/spec#Numeric_types for more details.
+type StatConn struct {
+	conn net.Conn
+
+	txBytes uint64
+	rxBytes uint64
+}
+
+func NewStatConn(conn net.Conn) *StatConn {
+	return &StatConn{
+		conn: conn,
+	}
+}
+
+// Stat returns the transmitted (TX) and received (RX) bytes over the net.Conn.
+func (s *StatConn) Stat() (uint64, uint64) {
+	return s.txBytes, s.rxBytes
+}
+
+func (s *StatConn) Read(b []byte) (n int, err error) {
+	s.rxBytes = s.rxBytes + uint64(len(b))
+	return s.conn.Read(b)
+}
+
+func (s *StatConn) Write(b []byte) (n int, err error) {
+	s.txBytes = s.txBytes + uint64(len(b))
+	return s.conn.Write(b)
+}
+
+func (s *StatConn) Close() error {
+	return s.conn.Close()
+}
+
+func (s *StatConn) LocalAddr() net.Addr {
+	return s.conn.LocalAddr()
+}
+
+func (s *StatConn) RemoteAddr() net.Addr {
+	return s.conn.RemoteAddr()
+}
+
+func (s *StatConn) SetDeadline(t time.Time) error {
+	return s.conn.SetDeadline(t)
+}
+
+func (s *StatConn) SetReadDeadline(t time.Time) error {
+	return s.conn.SetReadDeadline(t)
+}
+
+func (s *StatConn) SetWriteDeadline(t time.Time) error {
+	return s.conn.SetWriteDeadline(t)
 }

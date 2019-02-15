@@ -145,6 +145,11 @@ const (
 	// ResizeEvent means that some user resized PTY on the client
 	ResizeEvent  = "resize"
 	TerminalSize = "size" // expressed as 'W:H'
+
+	// Data transfer events.
+	DataTransmittedEvent = "tx"
+	DataReceivedEvent    = "rx"
+	DataTransferredBytes = "bytes"
 )
 
 const (

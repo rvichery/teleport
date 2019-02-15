@@ -906,7 +906,7 @@ func (s *Server) handleSessionRequests(sconn *ssh.ServerConn, identityContext sr
 	defer ctx.Close()
 
 	// Create a close context used to signal between the server and the
-	// keep-alive loop when to close th connection (from either side).
+	// keep-alive loop when to close the connection (from either side).
 	closeContext, closeCancel := context.WithCancel(context.Background())
 	defer closeCancel()
 

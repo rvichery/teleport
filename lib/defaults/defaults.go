@@ -224,6 +224,11 @@ const (
 	// CallbackTimeout is how long to wait for a response from SSO provider
 	// before timeout.
 	CallbackTimeout = 180 * time.Second
+
+	// DataTransferThreshold (100 MB) is the intervals at which data transfer
+	// events are emitted to the Audit Log.
+	//DataTransferThreshold = 100000000
+	DataTransferThreshold = 10000000
 )
 
 var (

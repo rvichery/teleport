@@ -21,7 +21,10 @@ import (
 	"fmt"
 	"io"
 	"net"
+	//"runtime/debug"
 	"sync"
+	//"sync/atomic"
+	//"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -78,7 +81,7 @@ type Server struct {
 
 	// serverConn is the server half of the pipe used to connect the client and
 	// server.
-	serverConn net.Conn
+	serverConn *utils.StatConn
 
 	// sconn is an authenticated SSH connection from the server perspective.
 	sconn *ssh.ServerConn
@@ -214,7 +217,7 @@ func New(c ServerConfig) (*Server, error) {
 		}),
 		id:              uuid.New(),
 		targetConn:      c.TargetConn,
-		serverConn:      serverConn,
+		serverConn:      utils.NewStatConn(serverConn),
 		clientConn:      clientConn,
 		userAgent:       c.UserAgent,
 		hostCertificate: c.HostCertificate,
@@ -458,6 +461,15 @@ func (s *Server) Close() error {
 	// Signal to waiting goroutines that the server is closing (for example,
 	// the keep alive loop).
 	s.closeCancel()
+
+	// Emit total data transfered event.
+	tx, rx := s.serverConn.Stat()
+	s.EmitAuditEvent(events.DataTransmittedEvent, events.EventFields{
+		events.DataTransferredBytes: tx,
+	})
+	s.EmitAuditEvent(events.DataReceivedEvent, events.EventFields{
+		events.DataTransferredBytes: rx,
+	})
 
 	return trace.NewAggregate(errs...)
 }
