@@ -17,9 +17,11 @@ limitations under the License.
 package integration
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -3153,28 +3155,51 @@ func (s *IntSuite) TestMultipleSignup(c *check.C) {
 
 func (s *IntSuite) TestDataTransfer(c *check.C) {
 	// Create a Teleport cluster.
-	t := s.newTeleport(c, nil, true)
-	defer t.Stop(true)
+	main := s.newTeleport(c, nil, true)
+	defer main.Stop(true)
 
 	// Create a client to the above Teleport cluster.
 	clientConfig := ClientConfig{
 		Login:   s.me.Username,
 		Cluster: Site,
 		Host:    Host,
-		Port:    t.GetPortSSHInt(),
+		Port:    main.GetPortSSHInt(),
 	}
 
-	_, err := runCommand(t, []string{"dd", "if=/dev/zero", "bs=1024", "count=1024"}, clientConfig, 1)
-	fmt.Printf("--> err: %v.\n", err)
+	output, err := runCommand(main, []string{"dd", "if=/dev/zero", "bs=1024", "count=1024"}, clientConfig, 1)
+	c.Assert(err, check.IsNil)
 
-	// get access to a authClient for the cluster
-	site := t.GetSiteAPI(Site)
-	c.Assert(site, check.NotNil)
-	// Get all session events from the backend.
-	sessionEvents, err := site.GetSessionEvents(defaults.Namespace, session.ID, 0, false)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	//{"addr.local":"127.0.0.1:20299","addr.remote":"127.0.0.1:46538","event":"session.data","login":"rjones","rx":0,"server_id":"00000000-0000-0000-0000-000000000000","time":"2019-02-15T23:28:59Z","tx":0,"user":"rjones"}
+
+	fmt.Printf("--> len(output): %v.\n", len(output))
+	fmt.Printf("--> filepath: %v.\n", main.Config.DataDir+"/log/events.log")
+
+	time.Sleep(5 * time.Second)
+
+	file, err := os.Open(main.Config.DataDir + "/log/events.log")
+	c.Assert(err, check.IsNil)
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		var fields events.EventFields
+		err = json.Unmarshal(scanner.Bytes(), &fields)
+
+		fmt.Printf("--> fields: %v.\n", fields)
 	}
+
+	err = scanner.Err()
+	c.Assert(err, check.IsNil)
+
+	time.Sleep(30 * time.Second)
+
+	//cluster := main.GetSiteAPI(Site)
+	//c.Assert(cluster, check.NotNil)
+
+	//// Get all session events from the backend.
+	//sessionEvents, err := cluster.GetSessions(defaults.Namespace)
+	//fmt.Printf("--> sessionEvents: %v.\n", sessionEvents)
+	//cluster.ActivateCertAuthority(
 
 	//nodes, err := client.ListNodes(context.Background())
 	//c.Assert(err, check.IsNil)

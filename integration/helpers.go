@@ -1188,7 +1188,7 @@ func (s *discardServer) Stop() {
 	s.sshServer.Close()
 }
 
-func (s *discardServer) HandleNewChan(conn net.Conn, sconn *ssh.ServerConn, newChannel ssh.NewChannel) {
+func (s *discardServer) HandleNewChan(conn *utils.StatConn, sconn *ssh.ServerConn, newChannel ssh.NewChannel) {
 	channel, reqs, err := newChannel.Accept()
 	if err != nil {
 		sconn.Close()
