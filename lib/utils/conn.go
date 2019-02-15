@@ -115,11 +115,13 @@ func (s *StatConn) Stat() (uint64, uint64) {
 }
 
 func (s *StatConn) Read(b []byte) (n int, err error) {
-	defer atomic.AddUint64(&s.rxBytes, uint64(n))
-	return s.Conn.Read(b)
+	n, err = s.Conn.Read(b)
+	atomic.AddUint64(&s.rxBytes, uint64(n))
+	return n, err
 }
 
 func (s *StatConn) Write(b []byte) (n int, err error) {
-	defer atomic.AddUint64(&s.txBytes, uint64(n))
-	return s.Conn.Write(b)
+	n, err = s.Conn.Write(b)
+	atomic.AddUint64(&s.txBytes, uint64(n))
+	return n, err
 }
