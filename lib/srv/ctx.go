@@ -493,6 +493,9 @@ func (c *ServerContext) Close() error {
 			log.Warnf("Failed to get: %v.", err)
 			return
 		}
+		if c.GetServer().Component() == teleport.ComponentProxy {
+			return
+		}
 		if clusterConfig.GetSessionRecording() == services.RecordAtProxy && c.GetServer().Component() != teleport.ComponentForwardingNode {
 			return
 		}
