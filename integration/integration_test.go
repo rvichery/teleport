@@ -3174,24 +3174,47 @@ func (s *IntSuite) TestDataTransfer(c *check.C) {
 	fmt.Printf("--> len(output): %v.\n", len(output))
 	fmt.Printf("--> filepath: %v.\n", main.Config.DataDir+"/log/events.log")
 
-	time.Sleep(5 * time.Second)
+	findInLog := func(eventName string) (events.EventFields, error) {
+		file, err := os.Open(main.Config.DataDir + "/log/events.log")
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
 
-	file, err := os.Open(main.Config.DataDir + "/log/events.log")
-	c.Assert(err, check.IsNil)
-	defer file.Close()
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			var fields events.EventFields
+			err = json.Unmarshal(scanner.Bytes(), &fields)
+			if err != nil {
+				return nil, err
+			}
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		var fields events.EventFields
-		err = json.Unmarshal(scanner.Bytes(), &fields)
+			if fields["event"] == eventName {
+				return fields, nil
+			}
+		}
 
-		fmt.Printf("--> fields: %v.\n", fields)
+		return nil, scanner.Err()
 	}
 
-	err = scanner.Err()
+	findSessionData := func() (events.EventFields, error) {
+		var err error
+		var eventFields events.EventFields
+
+		for i := 0; i < 10; i++ {
+			eventFields, err = findInLog("session.data")
+			if err == nil {
+				return eventFields, nil
+			}
+			time.Sleep(1 * time.Second)
+		}
+		return nil, err
+	}
+
+	eventFields, err := findSessionData()
 	c.Assert(err, check.IsNil)
 
-	time.Sleep(30 * time.Second)
+	fmt.Printf("--> eventFields: %v.\n", eventFields)
 
 	//cluster := main.GetSiteAPI(Site)
 	//c.Assert(cluster, check.NotNil)
