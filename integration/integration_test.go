@@ -3151,6 +3151,22 @@ func (s *IntSuite) TestMultipleSignup(c *check.C) {
 	}
 }
 
+func (s *IntSuite) TestDataTransfer(c *check.C) {
+	// Create a Teleport cluster.
+	t := s.newTeleport(c, nil, true)
+	defer t.Stop(true)
+
+	// Create a client to the above Teleport cluster.
+	client, err := t.NewClient(ClientConfig{Login: s.me.Username, Cluster: Site, Host: Host, Port: t.GetPortSSHInt()})
+	c.Assert(err, check.IsNil)
+
+	client.SCP(
+
+cf.CopySpec=[n:/tmp/10 my_10mb_file], cf.NodePort: 0, cf.RecursiveCopy: false, cf.Quiet: false.
+
+
+}
+
 // runCommand is a shortcut for running SSH command, it creates a client
 // connected to proxy of the passed in instance, runs the command, and returns
 // the result. If multiple attempts are requested, a 250 millisecond delay is
