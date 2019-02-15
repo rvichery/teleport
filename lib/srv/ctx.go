@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	//"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
+	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/events"
@@ -163,6 +165,10 @@ type ServerContext struct {
 
 	// Conn is the underlying *ssh.ServerConn.
 	Conn *ssh.ServerConn
+
+	// StatConn is the underlying net.Conn wrapped in a wrapper that tracks how
+	// much data was transmitted.
+	StatConn *utils.StatConn
 
 	// Identity holds the identity of the user that is currently logged in on
 	// the Conn.
@@ -479,8 +485,55 @@ func (c *ServerContext) takeClosers() []io.Closer {
 }
 
 func (c *ServerContext) Close() error {
+	// When the context (connection) is closed, emit "session.data" event
+	// containing how much data was transmitted and received.
+	defer func() {
+		clusterConfig, err := c.GetServer().GetAccessPoint().GetClusterConfig()
+		if err != nil {
+			log.Warnf("Failed to get: %v.", err)
+			return
+		}
+		if clusterConfig.GetSessionRecording() == services.RecordAtProxy && c.GetServer().Component() != teleport.ComponentForwardingNode {
+			return
+		}
+
+		fmt.Printf("--> c.GetServer().Component(): %v.\n", c.GetServer().Component())
+		fmt.Printf("--> c.StatConn: %v.\n", c.StatConn)
+		//	debug.PrintStack()
+
+		auditLog := c.GetServer().GetAuditLog()
+		if c.StatConn == nil {
+			fmt.Printf("--> IS NIL\n")
+			return
+		}
+		txBytes, rxBytes := c.StatConn.Stat()
+
+		eventFields := events.EventFields{
+			events.DataTransmitted: txBytes,
+			events.DataReceived:    rxBytes,
+			events.SessionServerID: c.GetServer().ID(),
+			events.EventLogin:      c.Identity.Login,
+			events.EventUser:       c.Identity.TeleportUser,
+			events.LocalAddr:       c.Conn.LocalAddr().String(),
+			events.RemoteAddr:      c.Conn.RemoteAddr().String(),
+		}
+		if c.session != nil {
+			eventFields[events.SessionEventID] = c.session.id
+		}
+
+		auditLog.EmitAuditEvent(events.SessionDataEvent, eventFields)
+	}()
+
+	// Unblock any goroutines waiting until session is closed.
 	c.cancel()
-	return closeAll(c.takeClosers()...)
+
+	// Close and release all resources.
+	err := closeAll(c.takeClosers()...)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
 }
 
 // SendExecResult sends the result of execution of the "exec" command over the

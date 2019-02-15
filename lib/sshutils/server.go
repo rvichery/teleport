@@ -364,10 +364,12 @@ func (s *Server) handleConnection(conn net.Conn) {
 		defaults.DefaultIdleConnectionDuration,
 		s.component)
 
+	statConn := utils.NewStatConn(conn)
+
 	// create a new SSH server which handles the handshake (and pass the custom
 	// payload structure which will be populated only when/if this connection
 	// comes from another Teleport proxy):
-	sconn, chans, reqs, err := ssh.NewServerConn(wrapConnection(conn), &s.cfg)
+	sconn, chans, reqs, err := ssh.NewServerConn(wrapConnection(statConn), &s.cfg)
 	if err != nil {
 		conn.SetDeadline(time.Time{})
 		return
@@ -413,7 +415,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 				connClosed()
 				return
 			}
-			go s.newChanHandler.HandleNewChan(conn, sconn, nch)
+			go s.newChanHandler.HandleNewChan(statConn, sconn, nch)
 			// send keepalive pings to the clients
 		case <-keepAliveTick.C:
 			const wantReply = true
@@ -433,12 +435,12 @@ func (f RequestHandlerFunc) HandleRequest(r *ssh.Request) {
 }
 
 type NewChanHandler interface {
-	HandleNewChan(net.Conn, *ssh.ServerConn, ssh.NewChannel)
+	HandleNewChan(*utils.StatConn, *ssh.ServerConn, ssh.NewChannel)
 }
 
-type NewChanHandlerFunc func(net.Conn, *ssh.ServerConn, ssh.NewChannel)
+type NewChanHandlerFunc func(*utils.StatConn, *ssh.ServerConn, ssh.NewChannel)
 
-func (f NewChanHandlerFunc) HandleNewChan(conn net.Conn, sshConn *ssh.ServerConn, ch ssh.NewChannel) {
+func (f NewChanHandlerFunc) HandleNewChan(conn *utils.StatConn, sshConn *ssh.ServerConn, ch ssh.NewChannel) {
 	f(conn, sshConn, ch)
 }
 

@@ -462,15 +462,6 @@ func (s *Server) Close() error {
 	// the keep alive loop).
 	s.closeCancel()
 
-	// Emit total data transfered event.
-	tx, rx := s.serverConn.Stat()
-	s.EmitAuditEvent(events.DataTransmittedEvent, events.EventFields{
-		events.DataTransferredBytes: tx,
-	})
-	s.EmitAuditEvent(events.DataReceivedEvent, events.EventFields{
-		events.DataTransferredBytes: rx,
-	})
-
 	return trace.NewAggregate(errs...)
 }
 
@@ -606,6 +597,7 @@ func (s *Server) handleDirectTCPIPRequest(ch ssh.Channel, req *sshutils.DirectTC
 		ch.Stderr().Write([]byte("Unable to create connection context."))
 		return
 	}
+	ctx.StatConn = s.serverConn
 	ctx.RemoteClient = s.remoteClient
 	defer ctx.Close()
 
@@ -669,6 +661,7 @@ func (s *Server) handleSessionRequests(ch ssh.Channel, in <-chan *ssh.Request) {
 		ch.Stderr().Write([]byte("Unable to create connection context."))
 		return
 	}
+	ctx.StatConn = s.serverConn
 	ctx.RemoteClient = s.remoteClient
 	ctx.AddCloser(ch)
 	defer ctx.Close()
