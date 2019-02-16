@@ -1195,12 +1195,14 @@ func (tc *TeleportClient) SCP(ctx context.Context, args []string, port int, recu
 					DirectoryMode: directoryMode,
 				},
 			}
+			fmt.Printf("--> scpConfig: %#v.\n", scpConfig)
 
 			cmd, err := scp.CreateUploadCommand(scpConfig)
 			if err != nil {
 				return trace.Wrap(err)
 			}
 
+			fmt.Printf("cmd: %#v.\n", cmd)
 			err = client.ExecuteSCP(cmd)
 			if err != nil {
 				return onError(err)

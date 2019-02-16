@@ -52,6 +52,7 @@ import (
 	"github.com/gravitational/teleport/lib/service"
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/session"
+	//"github.com/gravitational/teleport/lib/sshutils/scp"
 	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -3188,6 +3189,7 @@ func (s *IntSuite) TestDataTransfer(c *check.C) {
 	c.Assert(eventFields.GetInt("tx") > KB, check.Equals, true)
 }
 
+// findEventInLog tries to find an event in the audit log file 10 times.
 func findEventInLog(t *TeleInstance, eventName string) (events.EventFields, error) {
 	for i := 0; i < 10; i++ {
 		eventFields, err := eventInLog(t.Config.DataDir+"/log/events.log", eventName)
@@ -3201,6 +3203,7 @@ func findEventInLog(t *TeleInstance, eventName string) (events.EventFields, erro
 	return nil, trace.NotFound("event not found")
 }
 
+// eventInLog finds event in audit log file.
 func eventInLog(path string, eventName string) (events.EventFields, error) {
 	file, err := os.Open(path)
 	if err != nil {

@@ -485,30 +485,32 @@ func (c *ServerContext) takeClosers() []io.Closer {
 
 func (c *ServerContext) Close() error {
 	// When the context (connection) is closed, emit "session.data" event
-	// containing how much data was transmitted and received.
+	// containing how much data was transmitted and received over the net.Conn.
 	defer func() {
-		clusterConfig, err := c.GetServer().GetAccessPoint().GetClusterConfig()
-		if err != nil {
-			log.Warnf("Failed to get: %v.", err)
-			return
-		}
+		// Never emit session data events for the proxy. If sessions are being
+		// recorded at the proxy, and the context was not created by a forwarding
+		// node, don't emit session data events.
 		if c.GetServer().Component() == teleport.ComponentProxy {
 			return
 		}
-		if clusterConfig.GetSessionRecording() == services.RecordAtProxy && c.GetServer().Component() != teleport.ComponentForwardingNode {
+		if c.ClusterConfig.GetSessionRecording() == services.RecordAtProxy &&
+			c.GetServer().Component() != teleport.ComponentForwardingNode {
 			return
 		}
 
-		auditLog := c.GetServer().GetAuditLog()
+		// Get the TX and RX bytes from *utils.StatConn. This should never be nil,
+		// if it is, something went terribly wrong.
 		if c.StatConn == nil {
+			log.Warnf("StatConn is missing, please report this to Gravitational.\n")
 			return
 		}
 		txBytes, rxBytes := c.StatConn.Stat()
 
+		// Build and emit session data event. Note that TX and RX are reversed
+		// below, that is because the connection is held from the perspective of
+		// the server not the client, but the logs are from the perspective of the
+		// client.
 		eventFields := events.EventFields{
-			// Note that TX and RX are reversed here, that is because the connection
-			// is held from the perspective of the server not the client, but the logs
-			// are from the perspective of the client.
 			events.DataTransmitted: rxBytes,
 			events.DataReceived:    txBytes,
 			events.SessionServerID: c.GetServer().ID(),
@@ -521,7 +523,7 @@ func (c *ServerContext) Close() error {
 			eventFields[events.SessionEventID] = c.session.id
 		}
 
-		auditLog.EmitAuditEvent(events.SessionDataEvent, eventFields)
+		c.GetServer().GetAuditLog().EmitAuditEvent(events.SessionDataEvent, eventFields)
 	}()
 
 	// Unblock any goroutines waiting until session is closed.
