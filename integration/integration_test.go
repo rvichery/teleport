@@ -3153,7 +3153,12 @@ func (s *IntSuite) TestMultipleSignup(c *check.C) {
 	}
 }
 
+// TestDataTransfer makes sure that a "session.data" event is emitted at the
+// end of a session that matches the amount of data that was transferred.
 func (s *IntSuite) TestDataTransfer(c *check.C) {
+	KB := 1024
+	MB := 1048576
+
 	// Create a Teleport cluster.
 	main := s.newTeleport(c, nil, true)
 	defer main.Stop(true)
@@ -3172,15 +3177,15 @@ func (s *IntSuite) TestDataTransfer(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// Make sure 1 MB was written to output.
-	c.Assert(len(output) > 1000000, check.Equals, true)
+	c.Assert(len(output) > MB, check.Equals, true)
 
 	// Make sure the session.data event was emitted to the audit log.
 	eventFields, err := findEventInLog(main, "session.data")
 	c.Assert(err, check.IsNil)
 
 	// Make sure the audit event shows that 1 MB was written to the output.
-	c.Assert(eventFields.GetInt("rx") > 1000000, check.Equals, true)
-	c.Assert(eventFields.GetInt("tx") > 1000, check.Equals, true)
+	c.Assert(eventFields.GetInt("rx") > MB, check.Equals, true)
+	c.Assert(eventFields.GetInt("tx") > KB, check.Equals, true)
 }
 
 func findEventInLog(t *TeleInstance, eventName string) (events.EventFields, error) {
