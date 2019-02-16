@@ -3174,54 +3174,20 @@ func (s *IntSuite) TestDataTransfer(c *check.C) {
 	fmt.Printf("--> len(output): %v.\n", len(output))
 	fmt.Printf("--> filepath: %v.\n", main.Config.DataDir+"/log/events.log")
 
-	findInLog := func(eventName string) (events.EventFields, error) {
-		file, err := os.Open(main.Config.DataDir + "/log/events.log")
-		if err != nil {
-			return nil, err
-		}
-		defer file.Close()
-
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			var fields events.EventFields
-			err = json.Unmarshal(scanner.Bytes(), &fields)
-			if err != nil {
-				return nil, err
-			}
-
-			if val, ok := fields["event"]; ok && val == eventName {
-				return fields, nil
-			}
-		}
-
-		return nil, scanner.Err()
-	}
-
-	findSessionData := func() (events.EventFields, error) {
-		var err error
-		var eventFields events.EventFields
-
-		for i := 0; i < 10; i++ {
-			eventFields, err = findInLog("session.data")
-			if err == nil {
-				return eventFields, nil
-			}
-			time.Sleep(1 * time.Second)
-		}
-		return nil, err
-	}
-
-	eventFields, err := findSessionData()
+	eventFields, err := findEventInLog(main, "session.data")
 	c.Assert(err, check.IsNil)
 
 	fmt.Printf("--> eventFields: %v.\n", eventFields)
 
-	if val, ok := eventFields["tx"]; ok {
-		fmt.Printf("--> eventFields: tx: %v.\n", val)
-	}
-	if val, ok := eventFields["rx"]; ok {
-		fmt.Printf("--> eventFields: rx: %v.\n", val)
-	}
+	c.Assert(eventFields.GetInt("rx") > 1000000, check.Equals, true)
+	c.Assert(eventFields.GetInt("tx") > 1000, check.Equals, true)
+
+	//if val, ok := eventFields["tx"]; ok {
+	//	fmt.Printf("--> eventFields: tx: %v.\n", val)
+	//}
+	//if val, ok := eventFields["rx"]; ok {
+	//	fmt.Printf("--> eventFields: rx: %v.\n", val)
+	//}
 
 	//cluster := main.GetSiteAPI(Site)
 	//c.Assert(cluster, check.NotNil)
@@ -3239,6 +3205,46 @@ func (s *IntSuite) TestDataTransfer(c *check.C) {
 	//}
 	//client.SCP(
 	//cf.CopySpec=[n:/tmp/10 my_10mb_file], cf.NodePort: 0, cf.RecursiveCopy: false, cf.Quiet: false.
+}
+
+func findEventInLog(t *TeleInstance, eventName string) (events.EventFields, error) {
+	for i := 0; i < 10; i++ {
+		eventFields, err := eventInLog(t.Config.DataDir+"/log/events.log", eventName)
+		if err != nil {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		return eventFields, nil
+	}
+	return nil, trace.NotFound("event not found")
+}
+
+func eventInLog(path string, eventName string) (events.EventFields, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		var fields events.EventFields
+		err = json.Unmarshal(scanner.Bytes(), &fields)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		eventType, ok := fields[events.EventType]
+		if !ok {
+			return nil, trace.BadParameter("not found")
+		}
+		if eventType == eventName {
+			return fields, nil
+		}
+	}
+
+	return nil, trace.NotFound("event not found")
 }
 
 // runCommand is a shortcut for running SSH command, it creates a client
