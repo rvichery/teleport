@@ -3189,7 +3189,7 @@ func (s *IntSuite) TestDataTransfer(c *check.C) {
 				return nil, err
 			}
 
-			if fields["event"] == eventName {
+			if val, ok := fields["event"]; ok && val == eventName {
 				return fields, nil
 			}
 		}
@@ -3215,6 +3215,13 @@ func (s *IntSuite) TestDataTransfer(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	fmt.Printf("--> eventFields: %v.\n", eventFields)
+
+	if val, ok := eventFields["tx"]; ok {
+		fmt.Printf("--> eventFields: tx: %v.\n", val)
+	}
+	if val, ok := eventFields["rx"]; ok {
+		fmt.Printf("--> eventFields: rx: %v.\n", val)
+	}
 
 	//cluster := main.GetSiteAPI(Site)
 	//c.Assert(cluster, check.NotNil)
