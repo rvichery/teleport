@@ -3176,8 +3176,8 @@ func (s *IntSuite) TestDataTransfer(c *check.C) {
 	output, err := runCommand(main, command, clientConfig, 1)
 	c.Assert(err, check.IsNil)
 
-	// Make sure 1 MB was written to output.
-	c.Assert(len(output) > MB, check.Equals, true)
+	// Make sure exactly 1 MB was written to output.
+	c.Assert(len(output) == MB, check.Equals, true)
 
 	// Make sure the session.data event was emitted to the audit log.
 	eventFields, err := findEventInLog(main, "session.data")

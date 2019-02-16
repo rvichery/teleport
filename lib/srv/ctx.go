@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	//"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -500,10 +499,6 @@ func (c *ServerContext) Close() error {
 			return
 		}
 
-		fmt.Printf("--> c.GetServer().Component(): %v.\n", c.GetServer().Component())
-		fmt.Printf("--> c.StatConn: %v.\n", c.StatConn)
-		//	debug.PrintStack()
-
 		auditLog := c.GetServer().GetAuditLog()
 		if c.StatConn == nil {
 			return
@@ -512,7 +507,7 @@ func (c *ServerContext) Close() error {
 
 		eventFields := events.EventFields{
 			// Note that TX and RX are reversed here, that is because the connection
-			// is held from the perspective of the server no the client, but the logs
+			// is held from the perspective of the server not the client, but the logs
 			// are from the perspective of the client.
 			events.DataTransmitted: rxBytes,
 			events.DataReceived:    txBytes,
