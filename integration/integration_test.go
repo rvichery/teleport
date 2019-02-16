@@ -3166,45 +3166,21 @@ func (s *IntSuite) TestDataTransfer(c *check.C) {
 		Port:    main.GetPortSSHInt(),
 	}
 
-	output, err := runCommand(main, []string{"dd", "if=/dev/zero", "bs=1024", "count=1024"}, clientConfig, 1)
+	// Write 1 MB to stdout.
+	command := []string{"dd", "if=/dev/zero", "bs=1024", "count=1024"}
+	output, err := runCommand(main, command, clientConfig, 1)
 	c.Assert(err, check.IsNil)
 
-	//{"addr.local":"127.0.0.1:20299","addr.remote":"127.0.0.1:46538","event":"session.data","login":"rjones","rx":0,"server_id":"00000000-0000-0000-0000-000000000000","time":"2019-02-15T23:28:59Z","tx":0,"user":"rjones"}
+	// Make sure 1 MB was written to output.
+	c.Assert(len(output) > 1000000, check.Equals, true)
 
-	fmt.Printf("--> len(output): %v.\n", len(output))
-	fmt.Printf("--> filepath: %v.\n", main.Config.DataDir+"/log/events.log")
-
+	// Make sure the session.data event was emitted to the audit log.
 	eventFields, err := findEventInLog(main, "session.data")
 	c.Assert(err, check.IsNil)
 
-	fmt.Printf("--> eventFields: %v.\n", eventFields)
-
+	// Make sure the audit event shows that 1 MB was written to the output.
 	c.Assert(eventFields.GetInt("rx") > 1000000, check.Equals, true)
 	c.Assert(eventFields.GetInt("tx") > 1000, check.Equals, true)
-
-	//if val, ok := eventFields["tx"]; ok {
-	//	fmt.Printf("--> eventFields: tx: %v.\n", val)
-	//}
-	//if val, ok := eventFields["rx"]; ok {
-	//	fmt.Printf("--> eventFields: rx: %v.\n", val)
-	//}
-
-	//cluster := main.GetSiteAPI(Site)
-	//c.Assert(cluster, check.NotNil)
-
-	//// Get all session events from the backend.
-	//sessionEvents, err := cluster.GetSessions(defaults.Namespace)
-	//fmt.Printf("--> sessionEvents: %v.\n", sessionEvents)
-	//cluster.ActivateCertAuthority(
-
-	//nodes, err := client.ListNodes(context.Background())
-	//c.Assert(err, check.IsNil)
-
-	//for _, n := range nodes {
-	//	fmt.Printf("--> n: GetHostname: %v, GetName: %v.\n", n.GetHostname(), n.GetName())
-	//}
-	//client.SCP(
-	//cf.CopySpec=[n:/tmp/10 my_10mb_file], cf.NodePort: 0, cf.RecursiveCopy: false, cf.Quiet: false.
 }
 
 func findEventInLog(t *TeleInstance, eventName string) (events.EventFields, error) {
