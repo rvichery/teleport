@@ -74,6 +74,7 @@ func (g *ResourceCommand) Initialize(app *kingpin.Application, config *service.C
 		services.KindGithubConnector: g.createGithubConnector,
 		services.KindCertAuthority:   g.createCertAuthority,
 		services.KindOIDCConnector:   g.createOIDCConnector,
+		services.KindRole:            g.createRole,
 	}
 	g.config = config
 
@@ -271,6 +272,29 @@ func (u *ResourceCommand) createOIDCConnector(client auth.ClientI, raw services.
 	}
 	fmt.Printf("authentication connector %q has been %s\n",
 		connector.GetName(), UpsertVerb(exists, u.force))
+	return nil
+}
+
+func (u *ResourceCommand) createRole(client auth.ClientI, raw services.UnknownResource) error {
+	role, err := services.GetRoleMarshaler().UnmarshalRole(raw.Raw)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = client.GetRole(role.GetName())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	exists := (err == nil)
+	if u.force == false && exists {
+		return trace.AlreadyExists("role %q already exists",
+			role.GetName())
+	}
+	err = client.UpsertRole(role)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	fmt.Printf("role %q has been %s\n",
+		role.GetName(), UpsertVerb(exists, u.force))
 	return nil
 }
 
